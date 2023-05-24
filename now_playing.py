@@ -15,18 +15,6 @@ TOKEN = None
 OLD_INFO = {"title": "", "artist": "", "album": ""}
 
 
-async def get_media_info():
-    '''asynchronously gets info from Win11 "Now Playing" section'''
-    try:
-        sessions = await MediaManager.request_async()
-        current_session = sessions.get_current_session()
-        if current_session:  # there needs to be a media session running
-            info = await current_session.try_get_media_properties_async()
-            return info
-    except OSError:
-        return None
-
-
 async def update_media(session: GlobalSystemMediaTransportControlsSession):
     '''gets media information whenever media property changes, gets thumbnail 
     and calls ImageMagick command to compress it'''
@@ -37,15 +25,11 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession):
     OLD_INFO = {"title": now_playing.title,
                 "artist": now_playing.artist, "album": now_playing.album_title}
     if now_playing.thumbnail:
-        # create the current_media_info dict with the earlier code first
         thumb_stream_ref = now_playing.thumbnail
-        # 5MB (5 million byte) buffer - thumbnail unlikely to be larger
         thumb_read_buffer = Buffer(5000000)
-        # copies data from data stream reference into buffer created above
         readable_stream = await thumb_stream_ref.open_read_async()
         await readable_stream.read_async(
             thumb_read_buffer, thumb_read_buffer.capacity, InputStreamOptions.READ_AHEAD)
-        # reads data (as bytes) from buffer
         buffer_reader = DataReader.from_buffer(thumb_read_buffer)
         byte_buffer = bytearray(thumb_read_buffer.length)
         buffer_reader.read_bytes(byte_buffer)
@@ -61,9 +45,8 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession):
              ], check=False)
     print(OLD_INFO)
 
+
 # pylint: disable-next=unused-argument
-
-
 def handle_media_changed(session, args):
     '''get the information when something changes'''
     asyncio.run(update_media(session))
@@ -79,9 +62,8 @@ async def update_session(manager: MediaManager):
         TOKEN = media_changed_token
         await update_media(session)
 
+
 # pylint: disable-next=unused-argument
-
-
 def handle_sessions_changed(manager: MediaManager, args):
     '''handler for updating the session info'''
     global OLD_SESSION
