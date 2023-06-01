@@ -40,7 +40,7 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession):
         subprocess.run(
             ["C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/convert.exe", "media_thumb.png",
              "-resize", "x128", "-crop", "128x128+0+0",
-             "-dither", "FloydSteinberg", "-define", "dither:diffusion-amount=80%",
+             "-dither", "FloydSteinberg", "-define", "dither:diffusion-amount=72%",
              "-remap", "pattern:gray50", "mono.png"
              ], check=False)
     print(OLD_INFO)
