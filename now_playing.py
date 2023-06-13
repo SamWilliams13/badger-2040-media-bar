@@ -5,6 +5,7 @@ import asyncio
 import os
 import subprocess
 import serial
+import shutil
 
 from winsdk.windows.media.control import \
     GlobalSystemMediaTransportControlsSessionManager as MediaManager, \
@@ -48,11 +49,13 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession, thing
              "-dither", "FloydSteinberg", "-define", "dither:diffusion-amount=72%",
              "-remap", "pattern:gray50", "out/mono.jpg"
              ], check=False)
+    else:
+        shutil.copyfile("default.jpg", "out/mono.jpg")
     # write song description into file for sending
     print("sending...")
     with open("out/desc.txt", "wb+") as file:
         file.write(bytes(OLD_INFO["title"] + "\n" + OLD_INFO["artist"] +
-                      "\n" + OLD_INFO["album"] + "\n", 'utf-8'))
+                         "\n" + OLD_INFO["album"] + "\n", 'utf-8'))
     # if process thinks it is most recent then send over the thumbnail and desc
     if THINGS_LEFT == things:
         subprocess.run(["ampy", "-p", "COM5",
