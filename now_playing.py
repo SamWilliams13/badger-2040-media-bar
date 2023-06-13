@@ -4,6 +4,7 @@
 import asyncio
 import os
 import subprocess
+import serial
 
 from winsdk.windows.media.control import \
     GlobalSystemMediaTransportControlsSessionManager as MediaManager, \
@@ -13,10 +14,11 @@ from winsdk.windows.storage.streams import Buffer, DataReader, InputStreamOption
 OLD_SESSION = None
 TOKEN = None
 OLD_INFO = {"title": "", "artist": "", "album": ""}
+THINGS_LEFT = 0
 
 
-async def update_media(session: GlobalSystemMediaTransportControlsSession):
-    '''gets media information whenever media property changes, gets thumbnail 
+async def update_media(session: GlobalSystemMediaTransportControlsSession, things):
+    '''gets media information whenever media property changes, gets thumbnail
     and calls ImageMagick command to compress it'''
     global OLD_INFO
     now_playing = await session.try_get_media_properties_async()
@@ -24,6 +26,8 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession):
         return
     OLD_INFO = {"title": now_playing.title,
                 "artist": now_playing.artist, "album": now_playing.album_title}
+    print(OLD_INFO)
+    # handle collecting the thumbnail
     if now_playing.thumbnail:
         thumb_stream_ref = now_playing.thumbnail
         thumb_read_buffer = Buffer(5000000)
@@ -33,23 +37,39 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession):
         buffer_reader = DataReader.from_buffer(thumb_read_buffer)
         byte_buffer = bytearray(thumb_read_buffer.length)
         buffer_reader.read_bytes(byte_buffer)
-        if os.path.exists("media_thumb.png"):
-            os.remove("media_thumb.png")
-        with open('media_thumb.png', 'wb+') as fobj:
+        if os.path.exists("media_thumb.jpg"):
+            os.remove("media_thumb.jpg")
+        with open('media_thumb.jpg', 'wb+') as fobj:
             fobj.write(bytearray(byte_buffer))
+        # compress and Floyd-Steinberg dither the image for display
         subprocess.run(
-            ["C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/convert.exe", "media_thumb.png",
+            ["C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/convert.exe", "media_thumb.jpg",
              "-resize", "x128", "-crop", "128x128+0+0",
              "-dither", "FloydSteinberg", "-define", "dither:diffusion-amount=72%",
-             "-remap", "pattern:gray50", "mono.png"
+             "-remap", "pattern:gray50", "out/mono.jpg"
              ], check=False)
-    print(OLD_INFO)
+    # write song description into file for sending
+    print("sending...")
+    with open("out/desc.txt", "wb+") as file:
+        file.write(bytes(OLD_INFO["title"] + "\n" + OLD_INFO["artist"] +
+                      "\n" + OLD_INFO["album"] + "\n", 'utf-8'))
+    # if process thinks it is most recent then send over the thumbnail and desc
+    if THINGS_LEFT == things:
+        subprocess.run(["ampy", "-p", "COM5",
+                        "put", "out", "/"], check=True)
+    # send command to refresh the screen
+    ser = serial.Serial("COM5", 112500)
+    ser.write(bytes("from main import refresh\rrefresh()\r", 'utf-8'))
+    ser.close()
+    print("done!")
 
 
 # pylint: disable-next=unused-argument
 def handle_media_changed(session, args):
     '''get the information when something changes'''
-    asyncio.run(update_media(session))
+    global THINGS_LEFT
+    THINGS_LEFT += 1
+    asyncio.run(update_media(session, THINGS_LEFT))
 
 
 async def update_session(manager: MediaManager):
@@ -57,10 +77,12 @@ async def update_session(manager: MediaManager):
     session = manager.get_current_session()
     if session:
         global TOKEN
+        global THINGS_LEFT
+        THINGS_LEFT += 1
         media_changed_token = session.add_media_properties_changed(
             handle_media_changed)
         TOKEN = media_changed_token
-        await update_media(session)
+        await update_media(session, THINGS_LEFT)
 
 
 # pylint: disable-next=unused-argument
