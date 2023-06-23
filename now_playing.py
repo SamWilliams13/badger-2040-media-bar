@@ -100,6 +100,7 @@ def handle_sessions_changed(manager: MediaManager, args):
 
 async def main():
     '''Set up the async things'''
+    os.makedirs("out", exist_ok=True)
     manager = await MediaManager.request_async()
     sessions_changed_token = manager.add_current_session_changed(
         handle_sessions_changed)
