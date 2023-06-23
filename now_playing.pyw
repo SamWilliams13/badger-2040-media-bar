@@ -48,7 +48,7 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession, thing
              "-resize", "x128", "-crop", "128x128+0+0",
              "-dither", "FloydSteinberg", "-define", "dither:diffusion-amount=72%",
              "-remap", "pattern:gray50", "out/mono.jpg"
-             ], check=False)
+             ], check=False, shell=True)
     else:
         shutil.copyfile("default.jpg", "out/mono.jpg")
     # write song description into file for sending
@@ -59,7 +59,7 @@ async def update_media(session: GlobalSystemMediaTransportControlsSession, thing
     # if process thinks it is most recent then send over the thumbnail and desc
     if THINGS_LEFT == things:
         subprocess.run(["ampy", "-p", "COM5",
-                        "put", "out", "/"], check=True)
+                        "put", "out", "/"], check=True, shell=True)
     # send command to refresh the screen
     ser = serial.Serial("COM5", 112500)
     ser.write(bytes("from main import refresh\rrefresh()\r", 'utf-8'))
